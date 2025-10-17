@@ -12,19 +12,28 @@
       margin: 2rem auto;
       padding: 1rem;
     }
+    h1 {
+      text-align: center;
+      color: #ff7f00;
+    }
     input {
-      width: 80%;
-      padding: 0.5rem;
+      width: 75%;
+      padding: 0.6rem;
       border: 1px solid #ccc;
       border-radius: 8px;
+      font-size: 1rem;
     }
     button {
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1rem;
       border: none;
       border-radius: 8px;
-      background: #007bff;
+      background: #ff7f00;
       color: white;
+      font-weight: 600;
       cursor: pointer;
+    }
+    button:hover {
+      background: #e56f00;
     }
     .result {
       padding: 0.75rem;
@@ -35,6 +44,9 @@
     }
     .checking {
       opacity: 0.6;
+    }
+    small {
+      color: #555;
     }
   </style>
 </head>
@@ -49,26 +61,47 @@
   <script>
     const resultsDiv = document.getElementById("results");
 
-    async function searchGoogle(query) {
-      // Using a public search proxy (DuckDuckGo's HTML results)
-      const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-      const res = await fetch(searchUrl);
-      const text = await res.text();
+    async function searchDuckDuckGo(query) {
+      resultsDiv.innerHTML = "<p>Searching...</p>";
 
-      // Extract visible links from the results
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-      const links = [...doc.querySelectorAll("a.result__a")]
-        .map(a => ({ title: a.innerText, href: a.href }));
+      // Use AllOrigins to bypass CORS
+      const searchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+        'https://duckduckgo.com/html/?q=' + query
+      )}`;
 
-      resultsDiv.innerHTML = "";
-      links.slice(0, 10).forEach((link) => checkIframeSafe(link));
+      try {
+        const res = await fetch(searchUrl);
+        const text = await res.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, "text/html");
+        const anchors = [...doc.querySelectorAll("a.result__a")];
+        const links = anchors.map(a => ({
+          title: a.innerText,
+          href: a.href
+        }));
+
+        if (links.length === 0) {
+          resultsDiv.innerHTML = "<p>No results found or blocked by DuckDuckGo.</p>";
+          return;
+        }
+
+        resultsDiv.innerHTML = "";
+        links.slice(0, 10).forEach(link => checkIframeSafe(link));
+      } catch (e) {
+        resultsDiv.innerHTML = "<p>Search failed. Try again later.</p>";
+        console.error(e);
+      }
     }
 
     function checkIframeSafe(link) {
       const wrapper = document.createElement("div");
       wrapper.className = "result checking";
-      wrapper.innerHTML = `<strong>${link.title}</strong><br><a href="${link.href}" target="_blank">${link.href}</a><br><small>Checking iframe safety...</small>`;
+      wrapper.innerHTML = `
+        <strong>${link.title}</strong><br>
+        <a href="${link.href}" target="_blank">${link.href}</a><br>
+        <small>Checking iframe safety...</small>
+      `;
       resultsDiv.appendChild(wrapper);
 
       const iframe = document.createElement("iframe");
@@ -76,10 +109,10 @@
       iframe.src = link.href;
 
       const timeout = setTimeout(() => {
-        wrapper.innerHTML += "<br>⚠️ Timed out (probably blocked)";
+        wrapper.querySelector("small").innerText = "⚠️ Timed out (probably blocked)";
         wrapper.classList.remove("checking");
         iframe.remove();
-      }, 4000);
+      }, 5000);
 
       iframe.onload = () => {
         clearTimeout(timeout);
@@ -101,7 +134,7 @@
     document.getElementById("searchForm").addEventListener("submit", e => {
       e.preventDefault();
       const q = document.getElementById("query").value.trim();
-      if (q) searchGoogle(q);
+      if (q) searchDuckDuckGo(q);
     });
   </script>
 </body>
