@@ -2,110 +2,66 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pancake Search</title>
 <style>
-  body {
-    font-family: system-ui, sans-serif;
-    background-color: #fafafa;
-    margin: 0;
-    padding: 2rem;
-    color: #333;
-  }
-  h1 {
-    text-align: center;
-  }
-  form {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
-  }
-  input[type="text"] {
-    width: 60%;
-    padding: 0.5rem;
-    border-radius: 1rem 0 0 1rem;
-    border: 1px solid #ccc;
-    outline: none;
-  }
-  button {
-    padding: 0.5rem 1rem;
-    border: none;
-    background-color: #0066ff;
-    color: white;
-    border-radius: 0 1rem 1rem 0;
-    cursor: pointer;
-  }
-  button:hover {
-    background-color: #004fd1;
-  }
-  #results {
-    max-width: 700px;
-    margin: auto;
-  }
-  .result {
-    padding: 1rem;
-    margin-bottom: 0.8rem;
-    border: 1px solid #ddd;
-    border-radius: 1rem;
-    background: white;
-  }
-  .result a {
-    font-size: 1.1rem;
-    color: #0073e6;
-    text-decoration: none;
-  }
-  .result a:hover {
-    text-decoration: underline;
-  }
-  .snippet {
-    color: #555;
-    font-size: 0.9rem;
-  }
+body { font-family: system-ui, sans-serif; max-width: 700px; margin: auto; padding: 2rem; }
+h1 { text-align: center; color: #ff7f00; }
+form { display: flex; justify-content: center; margin-bottom: 1rem; }
+input { flex: 1; padding: 0.5rem; border-radius: 8px 0 0 8px; border: 1px solid #ccc; }
+button { padding: 0.5rem 1rem; border: none; background: #ff7f00; color: white; border-radius: 0 8px 8px 0; cursor: pointer; }
+button:hover { background: #e56f00; }
+.result { margin-top: 0.5rem; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; background: white; }
+.result a { text-decoration: none; color: #0073e6; font-weight: bold; }
+.result a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-  <h1>Pancake Search</h1>
-  <form id="searchForm">
-    <input type="text" id="query" placeholder="Search the web..." required>
-    <button type="submit">Search</button>
-  </form>
-  <div id="results"></div>
+<h1>🥞 Pancake Search</h1>
+<form id="searchForm">
+<input type="text" id="query" placeholder="Search the web..." required>
+<button type="submit">Search</button>
+</form>
+<div id="results"></div>
 
-  <script>
-    const form = document.getElementById('searchForm');
-    const resultsDiv = document.getElementById('results');
+<script>
+const resultsDiv = document.getElementById('results');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const query = document.getElementById('query').value.trim();
-      if (!query) return;
+async function search(query) {
+  resultsDiv.innerHTML = '<p>Searching...</p>';
 
-      resultsDiv.innerHTML = `<p>Searching for "${query}"...</p>`;
+  const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://duckduckgo.com/html/?q=' + query);
 
-      try {
-        const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1`);
-        const data = await response.json();
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
 
-        resultsDiv.innerHTML = '';
-        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-          data.RelatedTopics.forEach(item => {
-            if (item.Text && item.FirstURL) {
-              const div = document.createElement('div');
-              div.className = 'result';
-              div.innerHTML = `
-                <a href="${item.FirstURL}" target="_self">${item.Text}</a>
-                <p class="snippet">${item.FirstURL}</p>
-              `;
-              resultsDiv.appendChild(div);
-            }
-          });
-        } else {
-          resultsDiv.innerHTML = '<p>No results found.</p>';
-        }
-      } catch (err) {
-        resultsDiv.innerHTML = `<p>Error fetching results: ${err.message}</p>`;
-      }
+    const anchors = [...doc.querySelectorAll('a.result__a')];
+    resultsDiv.innerHTML = '';
+
+    anchors.slice(0, 10).forEach(a => {
+      let href = a.href;
+      const match = href.match(/uddg=([^&]+)/);
+      if (match) href = decodeURIComponent(match[1]);
+
+      const div = document.createElement('div');
+      div.className = 'result';
+      div.innerHTML = `<a href="${href}" target="_self">${a.innerText}</a>`;
+      resultsDiv.appendChild(div);
     });
-  </script>
+
+    if (anchors.length === 0) resultsDiv.innerHTML = '<p>No results found.</p>';
+  } catch (err) {
+    resultsDiv.innerHTML = `<p>Error: ${err.message}</p>`;
+  }
+}
+
+document.getElementById('searchForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = document.getElementById('query').value.trim();
+  if (q) search(q);
+});
+</script>
 </body>
 </html>
