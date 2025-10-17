@@ -64,7 +64,7 @@
     async function searchDuckDuckGo(query) {
       resultsDiv.innerHTML = "<p>Searching...</p>";
 
-      // Use AllOrigins to bypass CORS
+      // Use AllOrigins proxy to bypass CORS
       const searchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
         'https://duckduckgo.com/html/?q=' + query
       )}`;
@@ -76,10 +76,16 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, "text/html");
         const anchors = [...doc.querySelectorAll("a.result__a")];
-        const links = anchors.map(a => ({
-          title: a.innerText,
-          href: a.href
-        }));
+
+        const links = anchors.map(a => {
+          let href = a.href;
+          // Clean DuckDuckGo redirect URLs
+          const match = href.match(/uddg=([^&]+)/);
+          if (match) {
+            href = decodeURIComponent(match[1]);
+          }
+          return { title: a.innerText, href };
+        });
 
         if (links.length === 0) {
           resultsDiv.innerHTML = "<p>No results found or blocked by DuckDuckGo.</p>";
@@ -98,8 +104,7 @@
       const wrapper = document.createElement("div");
       wrapper.className = "result checking";
       wrapper.innerHTML = `
-        <strong>${link.title}</strong><br>
-        <a href="${link.href}" target="_blank">${link.href}</a><br>
+        <strong><a href="${link.href}" target="_blank" rel="noopener noreferrer">${link.title}</a></strong><br>
         <small>Checking iframe safety...</small>
       `;
       resultsDiv.appendChild(wrapper);
