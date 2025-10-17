@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Pancake Search</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #fafafa;
+      color: #222;
+      max-width: 700px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    input {
+      width: 80%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    .result {
+      padding: 0.75rem;
+      margin-top: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+    }
+    .checking {
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>🥞 Pancake Search</h1>
+  <form id="searchForm">
+    <input id="query" type="text" placeholder="Search the web...">
+    <button>Search</button>
+  </form>
+  <div id="results"></div>
+
+  <script>
+    const resultsDiv = document.getElementById("results");
+
+    async function searchGoogle(query) {
+      // Using a public search proxy (DuckDuckGo's HTML results)
+      const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+      const res = await fetch(searchUrl);
+      const text = await res.text();
+
+      // Extract visible links from the results
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, "text/html");
+      const links = [...doc.querySelectorAll("a.result__a")]
+        .map(a => ({ title: a.innerText, href: a.href }));
+
+      resultsDiv.innerHTML = "";
+      links.slice(0, 10).forEach((link) => checkIframeSafe(link));
+    }
+
+    function checkIframeSafe(link) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "result checking";
+      wrapper.innerHTML = `<strong>${link.title}</strong><br><a href="${link.href}" target="_blank">${link.href}</a><br><small>Checking iframe safety...</small>`;
+      resultsDiv.appendChild(wrapper);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = link.href;
+
+      const timeout = setTimeout(() => {
+        wrapper.innerHTML += "<br>⚠️ Timed out (probably blocked)";
+        wrapper.classList.remove("checking");
+        iframe.remove();
+      }, 4000);
+
+      iframe.onload = () => {
+        clearTimeout(timeout);
+        wrapper.querySelector("small").innerText = "✅ Works in Pancake iframe!";
+        wrapper.classList.remove("checking");
+        iframe.remove();
+      };
+
+      iframe.onerror = () => {
+        clearTimeout(timeout);
+        wrapper.querySelector("small").innerText = "❌ Blocked from iframe.";
+        wrapper.classList.remove("checking");
+        iframe.remove();
+      };
+
+      document.body.appendChild(iframe);
+    }
+
+    document.getElementById("searchForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const q = document.getElementById("query").value.trim();
+      if (q) searchGoogle(q);
+    });
+  </script>
+</body>
+</html>
