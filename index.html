@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pancake Search</title>
+<title>Pancake Safe Search</title>
 <style>
 body { font-family: system-ui, sans-serif; max-width: 700px; margin: auto; padding: 2rem; }
 h1 { text-align: center; color: #ff7f00; }
@@ -16,7 +16,7 @@ button:hover { background: #e56f00; }
 </style>
 </head>
 <body>
-<h1>🥞 Pancake Search</h1>
+<h1>🥞 Pancake Safe Search</h1>
 <form id="searchForm">
 <input type="text" id="query" placeholder="Search the web..." required>
 <button type="submit">Search</button>
@@ -38,23 +38,48 @@ async function search(query) {
     const doc = parser.parseFromString(text, 'text/html');
 
     const anchors = [...doc.querySelectorAll('a.result__a')];
-    resultsDiv.innerHTML = '';
+    if (anchors.length === 0) {
+      resultsDiv.innerHTML = '<p>No results found.</p>';
+      return;
+    }
 
+    resultsDiv.innerHTML = '';
     anchors.slice(0, 10).forEach(a => {
       let href = a.href;
       const match = href.match(/uddg=([^&]+)/);
       if (match) href = decodeURIComponent(match[1]);
 
-      const div = document.createElement('div');
-      div.className = 'result';
-      div.innerHTML = `<a href="${href}" target="_self">${a.innerText}</a>`;
-      resultsDiv.appendChild(div);
+      checkIframeSafe(href, a.innerText);
     });
-
-    if (anchors.length === 0) resultsDiv.innerHTML = '<p>No results found.</p>';
   } catch (err) {
     resultsDiv.innerHTML = `<p>Error: ${err.message}</p>`;
   }
+}
+
+function checkIframeSafe(url, title) {
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = url;
+
+  const timeout = setTimeout(() => {
+    iframe.remove();
+  }, 5000);
+
+  iframe.onload = () => {
+    clearTimeout(timeout);
+    const div = document.createElement('div');
+    div.className = 'result';
+    div.innerHTML = `<a href="${url}" target="_self">${title}</a>`;
+    resultsDiv.appendChild(div);
+    iframe.remove();
+  };
+
+  iframe.onerror = () => {
+    clearTimeout(timeout);
+    iframe.remove(); // do not display blocked sites
+  };
+
+  document.body.appendChild(iframe);
 }
 
 document.getElementById('searchForm').addEventListener('submit', e => {
